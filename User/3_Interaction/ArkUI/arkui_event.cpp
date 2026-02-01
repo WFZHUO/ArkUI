@@ -171,8 +171,11 @@ void ArkUIEventChangeUint(ArkUIItem_t *item)
 }
 
 /**
- * @brief 数值参数项变更事件（光标模式）,残次版,以后修
- * @param item 数值参数项指针
+ * @brief 修改Uint类型参数的事件处理函数,光标版
+ *        该函数用于显示一个对话框，允许用户修改Uint类型的参数值，
+ *        同时可以调整修改参数时的步进值，支持保存修改或返回初始值。
+ * 
+ * @param item 指向 ArkUIItem_t 结构体的指针，包含要修改的参数信息
  */
 void ArkUIEventChangeUint_Cursor(ArkUIItem_t *item)
 {
@@ -188,49 +191,42 @@ void ArkUIEventChangeUint_Cursor(ArkUIItem_t *item)
 
     ArkUISetDrawColor(OLED_DRAWMODE_NORMAL);
 
-    // Display information and draw box
+    // --------- 弹窗布局 ---------
     height = ITEM_HEIGHT * 4 + 2;
     if (strlen(item->title) + 1 > 12)
         width = (strlen(item->title) + 1) * FONT_WIDTH + 7;
     else
         width = 12 * FONT_WIDTH + 7;
+
     if (width < 2 * SCREEN_WIDTH / 3)
         width = 2 * SCREEN_WIDTH / 3;
+
     x = (SCREEN_WIDTH - width) / 2;
     y = (SCREEN_HEIGHT - height) / 2;
 
+    // 背景 + 边框
     ArkUIDrawRBox(x - 1, y - 1, width + 2, height + 2, 0, 8);
     ArkUIDrawRFrame(x - 1, y - 1, width + 2, height + 2, 1, 8);
 
+    // 文本
     ArkUIDisplayStr(x + 3, y + itemHeightOffset, item->title);
     ArkUIDisplayStr(x + 3 + strlen(item->title) * FONT_WIDTH, y + itemHeightOffset, ":");
     ArkUIDisplayStr(x + 3, y + 2 * ITEM_HEIGHT + itemHeightOffset, "Step:");
     ArkUIDisplayStr(x + 3, y + 3 * ITEM_HEIGHT + itemHeightOffset, "Save");
     ArkUIDisplayStr(x + width - 6 * FONT_WIDTH - 4, y + 3 * ITEM_HEIGHT + itemHeightOffset, "Return");
 
-    // Change value of param or step
+    // --------- 改值逻辑（选中态不再手动画 XOR 高亮，由 Cursor 负责反色填充） ---------
     if (changeVal)
     {
-        ArkUISetDrawColor(OLED_DRAWMODE_XOR);
-        ArkUIDrawRBox(x + 1, y + 1, (strlen(item->title) + 1) * FONT_WIDTH + 5, ITEM_HEIGHT, 1, 4);
-        ArkUISetDrawColor(OLED_DRAWMODE_NORMAL);
-
-        if (opnUp)
-            *item->param += step;
+        if (opnUp) *item->param += step;
         if (opnDown)
         {
-            if (*item->param - step >= 0)
-                *item->param -= step;
-            else
-                *item->param = 0;
+            if (*item->param - step >= 0) *item->param -= step;
+            else *item->param = 0;
         }
     }
     else if (changeStep)
     {
-        ArkUISetDrawColor(OLED_DRAWMODE_XOR);
-        ArkUIDrawRBox(x + 1, y + 1 + 2 * ITEM_HEIGHT, 5 * FONT_WIDTH + 5, ITEM_HEIGHT, 1, 4);
-        ArkUISetDrawColor(OLED_DRAWMODE_NORMAL);
-
         if (opnUp)
         {
             if (step == 1) step = 10;
@@ -246,19 +242,11 @@ void ArkUIEventChangeUint_Cursor(ArkUIItem_t *item)
     }
     else
     {
-        if (opnDown)
-        {
-            if (index < 4) index++;
-            else index = 1;
-        }
-        if (opnUp)
-        {
-            if (index > 1) index--;
-            else index = 4;
-        }
+        if (opnDown) { if (index < 4) index++; else index = 1; }
+        if (opnUp)   { if (index > 1) index--; else index = 4; }
     }
 
-    // Display value & step
+    // 数值显示
     ArkUIPrintf(x + 3, y + ITEM_HEIGHT + itemHeightOffset, "%d", (unsigned int)*item->param);
 
     if (step == 1)
@@ -268,131 +256,149 @@ void ArkUIEventChangeUint_Cursor(ArkUIItem_t *item)
     else
         ArkUIDisplayStr(x + 3 + 7 * FONT_WIDTH, y + 2 * ITEM_HEIGHT + itemHeightOffset, "100");
 
-    // -------- Cursor：衔接到对话框选中框（非编辑模式才显示） --------
+    // --------- 计算当前 index 的目标框（Cursor target） ---------
+    const uint16_t dt_ms = (uint16_t)(g_arkui_tick_ms ? g_arkui_tick_ms : 1);
+    const bool editing = (changeVal || changeStep);
+
+    float targetX, targetY, targetW, targetH;
+    targetH = (float)ITEM_HEIGHT;
+
+    if (index == 1)
     {
-        const uint16_t dt_ms = (uint16_t)(g_arkui_tick_ms ? g_arkui_tick_ms : 1);
-        const uint8_t cursorVisible = (changeVal || changeStep) ? 0 : 1;
-        Cursor.Set_Visible(cursorVisible);
+        targetX = (float)(x + 1);
+        targetY = (float)(y + 1);
+        targetW = (float)((strlen(item->title) + 1) * FONT_WIDTH + 5);
+    }
+    else if (index == 2)
+    {
+        targetX = (float)(x + 1);
+        targetY = (float)(y + 1 + 2 * ITEM_HEIGHT);
+        targetW = (float)(5 * FONT_WIDTH + 5);
+    }
+    else if (index == 3)
+    {
+        targetX = (float)(x + 1);
+        targetY = (float)(y + 1 + 3 * ITEM_HEIGHT);
+        targetW = (float)(4 * FONT_WIDTH + 5);
+    }
+    else
+    {
+        targetX = (float)(x + width - 6 * FONT_WIDTH - 6);
+        targetY = (float)(y + 1 + 3 * ITEM_HEIGHT);
+        targetW = (float)(6 * FONT_WIDTH + 5);
+    }
 
-        // 计算当前 index 的目标框（和你原来的 RFrame 一致）
-        float targetX, targetY, targetW, targetH;
-        targetH = (float)ITEM_HEIGHT;
+    // --------- Cursor 行为 ---------
+    if (editing)
+    {
+        // 选中态：反色填充保持（Cursor.Draw_Cursor）
+        Cursor.Set_Visible(1);
 
-        if (index == 1)
+        const uint32_t dlgObjectEdit = 0xE0000000u | ((uint32_t)item->id << 8) | 0xAAu;
+        if (Cursor.Get_Object() != dlgObjectEdit)
+            Cursor.Goto(dlgObjectEdit, targetX, targetY, targetW, targetH, 1, 4);
+
+        Cursor.Update(dt_ms);
+        Cursor.Draw_Cursor();
+    }
+    else
+    {
+        // 非选中态：空心框（不填充不反色）
+        // 仍用 Cursor 做衔接/插值，但我们不调用 Cursor.Draw_Cursor()
+        Cursor.Set_Visible(0);
+
+        const uint32_t dlgObject = 0xE0000000u | ((uint32_t)item->id << 8) | (uint32_t)index;
+
+        if (!cursorInited)
         {
-            targetX = (float)(x + 1);
-            targetY = (float)(y + 1);
-            targetW = (float)((strlen(item->title) + 1) * FONT_WIDTH + 5);
-        }
-        else if (index == 2)
-        {
-            targetX = (float)(x + 1);
-            targetY = (float)(y + 1 + 2 * ITEM_HEIGHT);
-            targetW = (float)(5 * FONT_WIDTH + 5);
-        }
-        else if (index == 3)
-        {
-            targetX = (float)(x + 1);
-            targetY = (float)(y + 1 + 3 * ITEM_HEIGHT);
-            targetW = (float)(4 * FONT_WIDTH + 5);
+            Struct_ArkUI_Rect from = Cursor.Get_Now_Cursor();
+            if (from.w <= 0.0f || from.h <= 0.0f)
+            {
+                // 避免默认 0 矩形导致从左上角飞
+                from.x = targetX; from.y = targetY; from.w = targetW; from.h = targetH;
+                Cursor.Set_Now(from.x, from.y, from.w, from.h, 4);
+            }
+
+            Cursor.Goto_From(dlgObject,
+                             from.x, from.y, from.w, from.h,
+                             targetX, targetY, targetW, targetH,
+                             120, 4);
+            cursorInited = 1;
+            cursorLastIndex = index;
         }
         else
         {
-            targetX = (float)(x + width - 6 * FONT_WIDTH - 6);
-            targetY = (float)(y + 1 + 3 * ITEM_HEIGHT);
-            targetW = (float)(6 * FONT_WIDTH + 5);
+            if (cursorLastIndex != index || Cursor.Get_Object() != dlgObject)
+            {
+                Cursor.Goto(dlgObject, targetX, targetY, targetW, targetH, 80, 4);
+                cursorLastIndex = index;
+            }
         }
 
-        if (cursorVisible)
+        Cursor.Update(dt_ms);
+
+        // 关键：只在弹窗区域内画空心框，弹窗外不画 -> 彻底无残影
+        Struct_ArkUI_Rect now = Cursor.Get_Now_Cursor();
+        int16_t fx = (int16_t)(now.x + 0.5f);
+        int16_t fy = (int16_t)(now.y + 0.5f);
+        int16_t fw = (int16_t)(now.w + 0.5f);
+        int16_t fh = (int16_t)(now.h + 0.5f);
+
+        // 弹窗可绘制范围（稍微放宽 1~2 像素）
+        int16_t bx0 = x - 2;
+        int16_t by0 = y - 2;
+        int16_t bx1 = x + (int16_t)width + 2;
+        int16_t by1 = y + (int16_t)height + 2;
+
+        // 只有当框完全落在弹窗范围内，才画（否则会在弹窗外留下轨迹）
+        if (fw > 0 && fh > 0 &&
+            fx >= bx0 && fy >= by0 &&
+            (fx + fw) <= bx1 && (fy + fh) <= by1)
         {
-            const uint32_t dlgObject = 0xE0000000u | ((uint32_t)item->id << 8) | (uint32_t)index;
+            ArkUIDrawRFrame(fx, fy, fw, fh, 1, 4);
+        }
+    }
 
-            if (!cursorInited)
+    // --------- 按键逻辑 ---------
+    if (opnClick)
+    {
+        // 只有未选中态才允许“进入选中态 / Save / Return”
+        if (!editing)
+        {
+            if (index == 1) changeVal = true;
+            else if (index == 2) changeStep = true;
+            else if (index == 3)
             {
-                // 第一帧：从上一页 Cursor 的当前位置衔接过来
-                Struct_ArkUI_Rect from = Cursor.Get_Now_Cursor();
-                if (from.w <= 0.0f || from.h <= 0.0f)
-                {
-                    // 避免上电默认 0 矩形导致从左上角飞
-                    from.x = targetX; from.y = targetY; from.w = targetW; from.h = targetH;
-                    Cursor.Set_Now(from.x, from.y, from.w, from.h, 4);
-                }
+                item->paramBackup = *item->param;
+                functionIsRunning = false;
+                ArkUIBackgroundBlur();
+                index = 1;
+                step = 1;
 
-                Cursor.Goto_From(dlgObject,
-                                 from.x, from.y, from.w, from.h,
-                                 targetX, targetY, targetW, targetH,
-                                 120, 4);  // 120ms：你想更快就 80/60
-                cursorInited = 1;
-                cursorLastIndex = index;
+                cursorInited = 0;
+                cursorLastIndex = 0;
+                Cursor.Set_Visible(1);
             }
             else
             {
-                // index 变了就推新目标
-                if (cursorLastIndex != index || Cursor.Get_Object() != dlgObject)
-                {
-                    Cursor.Goto(dlgObject, targetX, targetY, targetW, targetH, 80, 4);
-                    cursorLastIndex = index;
-                }
+                *item->param = item->paramBackup;
+                functionIsRunning = false;
+                ArkUIBackgroundBlur();
+                index = 1;
+                step = 1;
+
+                cursorInited = 0;
+                cursorLastIndex = 0;
+                Cursor.Set_Visible(1);
             }
-
-            Cursor.Update(dt_ms);
-            Cursor.Draw_Cursor();
-        }
-    }
-    // ---------------------------------------------------------------
-
-    // Draw indicator（保留你原来的外框提示；如果你觉得重复，可以把这一段删掉）
-    if (index == 1)
-        ArkUIDrawRFrame(x + 1, y + 1, (strlen(item->title) + 1) * FONT_WIDTH + 5, ITEM_HEIGHT, 1, 4);
-    else if (index == 2)
-        ArkUIDrawRFrame(x + 1, y + 1 + 2 * ITEM_HEIGHT, 5 * FONT_WIDTH + 5, ITEM_HEIGHT, 1, 4);
-    else if (index == 3)
-        ArkUIDrawRFrame(x + 1, y + 1 + 3 * ITEM_HEIGHT, 4 * FONT_WIDTH + 5, ITEM_HEIGHT, 1, 4);
-    else
-        ArkUIDrawRFrame(x + width - 6 * FONT_WIDTH - 6, y + 1 + 3 * ITEM_HEIGHT, 6 * FONT_WIDTH + 5, ITEM_HEIGHT, 1, 4);
-
-    // Operation move reaction
-    if (opnClick)
-    {
-        if (index == 1)
-            changeVal = true;
-        else if (index == 2)
-            changeStep = true;
-        else if (index == 3)
-        {
-            item->paramBackup = *item->param;
-            functionIsRunning = false;
-            ArkUIBackgroundBlur();
-            index = 1;
-            step = 1;
-
-            // 退出对话框：下次进来重新做一次衔接
-            cursorInited = 0;
-            cursorLastIndex = 0;
-            Cursor.Set_Visible(1);
-        }
-        else
-        {
-            *item->param = item->paramBackup;
-            functionIsRunning = false;
-            ArkUIBackgroundBlur();
-            index = 1;
-            step = 1;
-
-            // 退出对话框：下次进来重新做一次衔接
-            cursorInited = 0;
-            cursorLastIndex = 0;
-            Cursor.Set_Visible(1);
         }
     }
 
     if (opnExit)
     {
-        if (index == 1)
-            changeVal = false;
-        else if (index == 2)
-            changeStep = false;
-        // 退出编辑模式后 Cursor 会自动重新显示并跟随 index（上面逻辑会处理）
+        // 退出选中态
+        if (index == 1) changeVal = false;
+        else if (index == 2) changeStep = false;
     }
 
     // Clear the states of key to monitor next key action
@@ -400,7 +406,6 @@ void ArkUIEventChangeUint_Cursor(ArkUIItem_t *item)
 
     ArkUISendBuffer();
 }
-
 
 /**
  * @brief 修改Int类型参数的事件处理函数
@@ -801,8 +806,8 @@ void IconPageEvent(ArkUIPage_t *page)
     const int TITLE_Y         = SCREEN_HEIGHT - FONT_HEIGHT - 6; // 标题目标 Y（底部固定）
     const int CURSOR_RADIUS   = 6;    // XOR 圆角半径
     const int CURSOR_ADHERE   = 8;    // 光标吸附最大像素偏移（小幅）6
-    const int ENTRY_FRAMES    = 12;   // 页面进场动画帧数（tick）
-    const int MOVE_FRAMES     = 8;    // 翻页动画帧数（tick）
+    const int ENTRY_FRAMES    = 12;   // 页面进场动画帧数（tick）//默认12
+    const int MOVE_FRAMES     = 8;    // 翻页动画帧数（tick）//默认8
     const int ENTRY_OFFSET    = (SCREEN_WIDTH / 2) + SLOT_DX; // 进场时图标起始偏移（右侧外）
     const int VISIBLE_WINDOW  = 12;   // 绘制窗口半宽（为性能可调）
     const int TITLE_EXTRA_PAD = 8;    // 标题脱屏额外缓冲（保证完全出屏）

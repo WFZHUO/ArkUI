@@ -17,14 +17,12 @@
 
 /* Private variables ---------------------------------------------------------*/
 
-ArkUIPage_t aa;
-ArkUIItem_t b;
 /* ---------Page-0---------- */
 /**
  * @brief 启动页
  */
 ArkUIPage_t page0;
-ArkUIItem_t jump_to_p1,jump_to_p2,jump_to_p3,jump_to_p4,jump_to_p5,jump_to_p6,jump_to_p7,a;
+ArkUIItem_t jump_to_p1,jump_to_p2,jump_to_p3,jump_to_p4,jump_to_p5,jump_to_p6,jump_to_p7;
 
 /* ---------Page-1---------- */
 /**
@@ -89,7 +87,6 @@ void ArkUI_RegisterMenu(void)
 {
     ArkUIItemArgs_t args;
 
-    ArkUIAddPage(&aa, PAGE_LIST);
     /* -----------register page----------- */
     ArkUIAddPage(&page0, PAGE_CUSTOM, IconPageEvent);
     ArkUIAddPage(&page1, PAGE_LIST);
@@ -99,9 +96,6 @@ void ArkUI_RegisterMenu(void)
     ArkUIAddPage(&page5, PAGE_LIST);
     ArkUIAddPage(&page6, PAGE_LIST);
     ArkUIAddPage(&page7, PAGE_LIST);
-
-    memset(&args, 0, sizeof(args)); args.pageId = page0.id;args.Event = ArkUIEventEnterIconPage;
-    ArkUIAddItem(&aa, &b, "[666]", ITEM_CUSTOM, &args);
     
     /* -----------register item----------- */
     /* ===== Page-0 ===== */
@@ -125,9 +119,6 @@ void ArkUI_RegisterMenu(void)
 
     memset(&args, 0, sizeof(args)); args.pageId = page7.id;args.icon = icon_terminal;
     ArkUIAddItem(&page0, &jump_to_p7, "[Custom]", ITEM_JUMP_PAGE, &args);
-
-    memset(&args, 0, sizeof(args)); args.Event = ArkUIEventCatchBrick; args.icon = icon_CatchBrick;
-    ArkUIAddItem(&page0, &a, "CatchBrick", ITEM_CUSTOM, &args);
 
     /* ===== Page-1 ===== */
     ArkUIAddItem(&page1, &title_of_p1, "[Switch]", ITEM_PAGE_DESCRIPTION, NULL);

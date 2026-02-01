@@ -145,7 +145,7 @@ void ArkUI(uint8_t timer)
     //If running function and hold the confirm button, quit the function
     if (functionIsRunning)
     {
-        uint8_t cur = itemIndex[layer];     // 用“真实光标”，防止进Event自定义事件后index未及时更新
+        uint8_t cur = itemIndex[layer];     // 用"真实光标"，防止进Event自定义事件后index未及时更新
         uint8_t found = 0;
 
         //遍历当前页面的所有item来找到当前光标指向的item,然后执行其事件函数
@@ -568,7 +568,7 @@ static void ArkUIDisplayItem(ArkUIItem_t *item)
         ArkUIDisplayStr(2, item->position, "-");
         ArkUIDisplayStr(5 + FONT_WIDTH, item->position, item->title);
 		
-			if(item->Event == &ArkUIEventChangeUint){
+			if(item->Event == &ArkUIEventChangeUint || item->Event == &ArkUIEventChangeUint_Cursor){
                 if(*item->param < 10 && *item->param >= 0){
                     ArkUIPrintf(SCREEN_WIDTH - SCROLL_BAR_WIDTH - 2*FONT_WIDTH,item->position,"%d",(unsigned int)(*item->param));
                 }else if(*item->param < 100 && *item->param >= 10){

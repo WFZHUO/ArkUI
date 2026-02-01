@@ -41,7 +41,6 @@ extern "C" void TIM2_IRQHandler(void){
             
             Class_ArkKey::ScanKeyState();
             Class_ArkKey::UserApp();
-            uiUpdateFlag = 1;
         }
 
 		static unsigned char UI_Time = 0;
@@ -82,7 +81,6 @@ void Task_Loop()
         */
         ArkUIKeyActionMonitor();
         Class_ArkKey::ClearAllFlags();
-    
         ArkUI(15);
     }	
 }
